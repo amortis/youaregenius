@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% block title %}Аннотации — {{ track.title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h4 mb-0">{{ track.title }} — {{ track.artist }}</h1>
+    <div class="text-muted small">Выделите фрагмент текста, чтобы добавить аннотацию.</div>
+  </div>
+  <a class="btn btn-outline-secondary" href="{{ url_for('tracks.track_detail', track_id=track.id) }}">Назад к треку</a>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card shadow-sm">
+      <div class="card-body py-0">
+        <textarea id="lyrics-text" readonly rows="32"
+                  class="form-control border-0 bg-transparent lyrics-pre">{{ track.lyrics }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-white"><strong>Новая аннотация</strong></div>
+      <div class="card-body">
+        <form id="annotation-form"
+              hx-post="{{ url_for('annotations.create', track_id=track.id) }}"
+              hx-target="#annotations" hx-swap="outerHTML">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="start" id="sel-start">
+          <input type="hidden" name="end" id="sel-end">
+          <div id="sel-excerpt" class="border rounded bg-light p-2 mb-2 small text-muted">Выделите текст в левой колонке</div>
+          <div class="mb-2">
+            <textarea name="content" id="sel-content" class="form-control" rows="4"
+                      placeholder="Ваш комментарий, мысли, разбор..."></textarea>
+          </div>
+          <button type="submit" id="annotate-btn" class="btn btn-primary w-100" disabled>Добавить аннотацию</button>
+        </form>
+      </div>
+    </div>
+
+    {% include 'annotations/_annotations.html' %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const ta = document.getElementById('lyrics-text');
+    const start = document.getElementById('sel-start');
+    const end = document.getElementById('sel-end');
+    const excerpt = document.getElementById('sel-excerpt');
+    const btn = document.getElementById('annotate-btn');
+
+    function update() {
+      const s = ta.selectionStart, e = ta.selectionEnd;
+      if (e > s) {
+        start.value = s;
+        end.value = e;
+        excerpt.textContent = ta.value.slice(s, e);
+        btn.disabled = false;
+      } else {
+        start.value = '';
+        end.value = '';
+        excerpt.textContent = 'Выделите текст в левой колонке';
+        btn.disabled = true;
+      }
+    }
+    ta.addEventListener('mouseup', update);
+    ta.addEventListener('keyup', update);
+    ta.addEventListener('select', update);
+
+    document.body.addEventListener('htmx:afterSwap', (event) => {
+      if (event.detail.elt.id !== 'annotation-form') return;
+      const content = document.getElementById('sel-content');
+      content.value = '';
+      update();
+    });
+  })();
+</script>
+{% endblock %}

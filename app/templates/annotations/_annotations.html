@@ -1,0 +1,41 @@
+<div id="annotations">
+  {% if annotations %}
+    {% for a in annotations %}
+      <div class="card shadow-sm mb-3">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
+          <div class="small">
+            <span class="fw-semibold">{{ a.user.username }}</span>
+            <span class="text-muted">· {{ a.created_at.strftime('%d.%m.%Y') }}</span>
+          </div>
+          <div class="d-flex gap-1">
+            {% if a.user_id == current_user.id %}
+              <button class="btn btn-sm btn-outline-secondary" type="button"
+                      onclick="document.getElementById('edit-{{ a.id }}').classList.toggle('d-none')">Править</button>
+              <button class="btn btn-sm btn-outline-danger"
+                      hx-post="{{ url_for('annotations.delete', annotation_id=a.id) }}"
+                      hx-target="#annotations" hx-swap="outerHTML"
+                      hx-confirm="Удалить аннотацию?">Удалить</button>
+            {% endif %}
+          </div>
+        </div>
+        <div class="card-body py-2">
+          <pre class="border rounded bg-light p-2 small mb-2">{{ a.excerpt }}</pre>
+          <p class="mb-0">{{ a.content }}</p>
+          {% if not a.on_original %}
+            <span class="badge text-bg-success mt-2">по переводу</span>
+          {% endif %}
+        </div>
+        <div id="edit-{{ a.id }}" class="card-footer bg-white d-none">
+          <form hx-post="{{ url_for('annotations.update', annotation_id=a.id) }}"
+                hx-target="#annotations" hx-swap="outerHTML">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <textarea name="content" class="form-control mb-2" rows="3">{{ a.content }}</textarea>
+            <button class="btn btn-sm btn-primary">Сохранить</button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="text-muted">Аннотаций пока нет.</div>
+  {% endif %}
+</div>

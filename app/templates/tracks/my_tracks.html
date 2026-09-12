@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}Мои треки — youaregenius{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 mb-0">Мои треки</h1>
+  <a class="btn btn-primary" href="{{ url_for('tracks.search') }}">Добавить трек</a>
+</div>
+
+{% if tracks %}
+  <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4">
+    {% for track in tracks %}
+      <div class="col">
+        <a class="card h-100 text-decoration-none shadow-sm" href="{{ url_for('tracks.track_detail', track_id=track.id) }}">
+          {% if track.cover_url %}
+            <img src="{{ track.cover_url }}" class="card-img-top" alt="{{ track.artist }}" loading="lazy">
+          {% endif %}
+          <div class="card-body">
+            <h2 class="h6 card-title mb-1">{{ track.title }}</h2>
+            <p class="card-text text-muted small mb-0">{{ track.artist }}
+              {%- if track.album %} · {{ track.album }}{% endif %}</p>
+            <p class="card-text small mb-0 mt-2 d-flex align-items-center gap-1 text-secondary">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor"
+                   class="bi bi-person-circle" viewBox="0 0 16 16">
+                <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+                <path fill-rule="evenodd"
+                      d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
+              </svg>
+              <span class="text-body">{{ current_user.username }}</span>
+            </p>
+          </div>
+        </a>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="text-center text-muted py-5">
+    <p class="mb-3">Пока пусто. Найдите трек на Genius и добавьте его себе.</p>
+    <a class="btn btn-primary" href="{{ url_for('tracks.search') }}">Найти трек</a>
+  </div>
+{% endif %}
+{% endblock %}

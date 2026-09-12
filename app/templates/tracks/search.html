@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}Поиск — youaregenius{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-4">Поиск трека на Genius</h1>
+
+<form method="post"
+      hx-post="{{ url_for('tracks.search') }}"
+      hx-target="#search-results"
+      hx-swap="innerHTML"
+      hx-trigger="submit"
+      class="row g-3 mb-4" novalidate>
+  {{ form.hidden_tag() }}
+  <div class="col-md-8">
+    {{ form.q(class="form-control form-control-lg" + (" is-invalid" if form.q.errors else "")) }}
+    {% for e in form.q.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+  </div>
+  <div class="col-md-4">
+    {{ form.submit(class="btn btn-primary btn-lg w-100") }}
+  </div>
+</form>
+
+<div id="search-results">
+  {% if results %}
+    {% include 'tracks/_search_results.html' %}
+  {% endif %}
+</div>
+{% endblock %}

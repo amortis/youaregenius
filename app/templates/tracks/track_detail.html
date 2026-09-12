@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ track.title }} — {{ track.artist }}{% endblock %}
+
+{% block content %}
+<style>
+  .refresh-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(17, 20, 24, .72);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+  }
+</style>
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card shadow-sm">
+      {% if track.cover_url %}
+        <img src="{{ track.cover_url }}" class="card-img-top" alt="{{ track.artist }}">
+      {% endif %}
+      <div class="card-body">
+        <h1 class="h4 mb-1">{{ track.title }}</h1>
+        <p class="text-muted mb-2">{{ track.artist }}{% if track.album %} · {{ track.album }}{% endif %}</p>
+        <div class="d-flex flex-column gap-2">
+          {% if is_owner %}
+          <a class="btn btn-outline-primary" href="{{ url_for('tracks.editor', track_id=track.id) }}">Редактор аннотаций</a>
+          <a class="btn btn-outline-secondary" href="{{ url_for('tracks.edit_original', track_id=track.id) }}">Редактировать текст</a>
+          <form method="post"
+                id="refresh-form"
+                action="{{ url_for('tracks.refresh_lyrics', track_id=track.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-info w-100" id="refresh-btn">Обновить текст с Genius</button>
+          </form>
+          <a class="btn btn-outline-success" href="{{ url_for('translations.translate_page', track_id=track.id) }}">
+            {% if translation %}Редактировать перевод{% else %}Перевести{% endif %}
+          </a>
+          {% endif %}
+          <a class="btn btn-outline-secondary" href="{{ track.source_url }}" target="_blank" rel="noopener">Открыть на Genius</a>
+        </div>
+        <div class="mt-3 small text-muted">
+          Аннотаций: {{ annotations|length }} · Оригинал: {{ track.lyrics|length }} симв.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <ul class="nav nav-pills mb-3" id="lang-tabs" role="tablist">
+      <li class="nav-item"><a class="nav-link active" data-bs-toggle="pill" data-bs-target="#pane-orig">Оригинал</a></li>
+      {% if translation %}
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" data-bs-target="#pane-ru">Русский</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" data-bs-target="#pane-both">Два языка</a></li>
+      {% else %}
+        <li class="nav-item"><span class="nav-link disabled">Перевода ещё нет — создайте его на вкладке «Перевести»</span></li>
+      {% endif %}
+    </ul>
+
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="pane-orig">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            {% set rows = orig_rows %}
+            {% include 'tracks/_lines.html' %}
+          </div>
+        </div>
+      </div>
+
+      {% if translation %}
+        <div class="tab-pane fade" id="pane-ru">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              {% set rows = trans_rows %}
+              {% include 'tracks/_lines.html' %}
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="pane-both">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <div class="lyrics" id="lyrics">
+                {% for row in split_rows %}
+                  {% if row.kind == 'heading' %}
+                    <div class="seg-heading mt-3 mb-2">{{ row.text|headline }}
+                      {%- if row.ru and row.ru != row.text %}<div class="small text-secondary">{{ row.ru|headline }}</div>{% endif -%}
+                    </div>
+                  {% elif row.kind == 'region' %}
+                    <div class="annot-region"
+                         data-anns="{{ annotation_payload(row.anns) }}"
+                         data-bs-toggle="tooltip" data-bs-placement="top" title="{{ annotation_tip(row.anns) }}">
+                      {% for pair in row.lines %}
+                        <div class="split-row">
+                          <div class="lyric-line">{{ marked_line(pair.en) }}</div>
+                          {% if pair.ru %}<div class="lyric-line ru-line">{{ marked_line(pair.ru) }}</div>{% endif %}
+                        </div>
+                      {% endfor %}
+                    </div>
+                  {% else %}
+                    {% for pair in row.lines %}
+                      <div class="split-row">
+                        <div class="lyric-line">{{ marked_line(pair.en) }}</div>
+                        {% if pair.ru %}<div class="lyric-line ru-line">{{ marked_line(pair.ru) }}</div>{% endif %}
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="annot-modal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Аннотации</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="annot-modal-body"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+<div id="refresh-overlay" class="refresh-overlay d-none">
+  <div class="spinner-border text-light" role="status"></div>
+  <div class="mt-3 text-light fw-semibold">Обновляем текст с Genius…</div>
+</div>
+
+{% block scripts %}
+<script>
+  const refreshForm = document.getElementById('refresh-form');
+  const refreshOverlay = document.getElementById('refresh-overlay');
+  const refreshBtn = document.getElementById('refresh-btn');
+
+  refreshForm?.addEventListener('submit', (event) => {
+    if (!confirm('Перезаписать текст с Genius? Ручные правки текста будут потеряны.')) {
+      event.preventDefault();
+      return;
+    }
+    refreshBtn.disabled = true;
+    refreshOverlay.classList.remove('d-none');
+  });
+
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((el) => new bootstrap.Tooltip(el, { html: false, placement: 'top' }));
+
+  const modal = new bootstrap.Modal(document.getElementById('annot-modal'));
+  const body = document.getElementById('annot-modal-body');
+
+  function cardHtml(ann) {
+    return `
+      <div class="border-bottom pb-3 mb-3">
+        <div class="annot-card-excerpt p-2 mb-2 rounded small">«${ann.excerpt}»</div>
+        <p class="mb-2" style="white-space: pre-wrap;">${ann.content}</p>
+        <div class="small text-muted">
+          <span class="fw-semibold">${ann.author}</span><span> · ${ann.date}</span>
+        </div>
+      </div>`;
+  }
+
+  document.addEventListener('click', (event) => {
+    const line = event.target.closest('.annot-region');
+    if (!line || !line.dataset.anns) return;
+    let anns;
+    try { anns = JSON.parse(atob(line.dataset.anns)); } catch { return; }
+    if (!anns || !anns.length) return;
+    body.innerHTML = anns.map(cardHtml).join('');
+    modal.show();
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block title %}Все треки — youaregenius{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 mb-0">Все треки</h1>
+  <a class="btn btn-primary" href="{{ url_for('tracks.search') }}">Добавить новый</a>
+</div>
+
+{% if rows %}
+  <div class="row row-cols-1 row-cols-lg-2 g-4">
+    {% for annotation, track in rows %}
+      <div class="col">
+        <div class="card h-100 shadow-sm">
+          <div class="card-header bg-white d-flex align-items-center gap-2">
+            {% if track.cover_url %}
+              <img src="{{ track.cover_url }}" class="rounded" width="40" height="40"
+                   alt="{{ track.artist }}" loading="lazy">
+            {% endif %}
+            <div class="text-truncate">
+              <a class="fw-semibold text-decoration-none" href="{{ url_for('tracks.track_detail', track_id=track.id) }}">
+                {{ track.title }}
+              </a>
+              <div class="small text-muted text-truncate">{{ track.artist }}
+                {%- if track.album %} · {{ track.album }}{% endif %}</div>
+            </div>
+          </div>
+          <div class="card-body py-2">
+            <div class="annot-card-excerpt p-2 mb-2 rounded small">«{{ annotation.excerpt }}»</div>
+            <p class="mb-0" style="white-space: pre-wrap;">{{ annotation.content }}</p>
+          </div>
+          <div class="card-footer bg-white small text-muted">
+            {{ annotation.user.username }} · {{ annotation.created_at.strftime('%d.%m.%Y') }}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="text-center text-muted py-5">
+    <p class="mb-3">Аннотаций пока нет. Добавьте первую!</p>
+    <a class="btn btn-primary" href="{{ url_for('tracks.search') }}">Найти трек</a>
+  </div>
+{% endif %}
+{% endblock %}

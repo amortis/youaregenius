@@ -1,0 +1,19 @@
+<div class="lyrics" id="lyrics">
+  {% for row in rows %}
+    {% if row.kind == 'heading' %}
+      <div class="seg-heading mt-3 mb-2">{{ row.text|headline }}</div>
+    {% elif row.kind == 'region' %}
+      <div class="annot-region"
+           data-anns="{{ annotation_payload(row.anns) }}"
+           data-bs-toggle="tooltip" data-bs-placement="top" title="{{ annotation_tip(row.anns) }}">
+        {% for line in row.lines %}
+          <div class="lyric-line">{{ marked_line(line) }}</div>
+        {% endfor %}
+      </div>
+    {% else %}
+      {% for line in row.lines %}
+        <div class="lyric-line">{{ marked_line(line) }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endfor %}
+</div>

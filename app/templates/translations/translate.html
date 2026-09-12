@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block title %}Перевод — {{ track.title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="h4 mb-0">Перевод — {{ track.title }} ({{ track.artist }})</h1>
+    <div class="text-muted small">Перевод строится построчно, структура Genius сохраняется.</div>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="{{ url_for('tracks.track_detail', track_id=track.id) }}">К треку</a>
+    <a class="btn btn-outline-primary" href="{{ url_for('tracks.editor', track_id=track.id) }}">Аннотации</a>
+  </div>
+</div>
+
+{% if not translation %}
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <p class="mb-3">Перевод ещё не создан. Можно:</p>
+      <div class="d-flex flex-wrap gap-2">
+        <form action="{{ url_for('translations.generate', track_id=track.id) }}" method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-success" title="Требуется DEEPL_API_KEY в .env">Сгенерировать через DeepL</button>
+        </form>
+        <form action="{{ url_for('translations.create_manual', track_id=track.id) }}" method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-outline-primary">Ввести перевод вручную</button>
+        </form>
+      </div>
+      <p class="text-muted small mt-3 mb-0">
+        При ручном вводе создаётся пустая структура той же разбивки,
+        что и оригинал — просто заполните строки.
+      </p>
+    </div>
+  </div>
+{% else %}
+  <div class="d-flex gap-2 mb-3">
+    <span class="badge text-bg-{{ 'success' if translation.source == 'manual' else 'secondary' }} text-bg-light pt-2">
+      {{ 'ручная версия' if translation.source == 'manual' else 'авто (DeepL)' }}
+    </span>
+    <form action="{{ url_for('translations.generate', track_id=track.id) }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-sm btn-outline-success">Перегенерировать</button>
+    </form>
+  </div>
+
+  <form action="{{ url_for('translations.save', track_id=track.id) }}" method="post" class="mb-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% for seg in translation.structure %}
+      {% set b = loop.index0 %}
+      <input type="hidden" name="block_index" value="{{ b }}">
+      <div class="card shadow-sm mb-3">
+        {% if seg.heading %}
+          <div class="card-header bg-white py-2 d-flex align-items-center">
+            <span class="small badge text-bg-light me-2">{{ seg.heading|headline }}</span>
+            <input name="heading_{{ b }}" class="form-control form-control-sm border-0" value="{{ seg.heading }}" aria-label="Заголовок секции {{ b }}">
+          </div>
+        {% endif %}
+        <div class="card-body py-2">
+          {% for line in seg.lines %}
+            <div class="row g-2 mb-1">
+              <div class="col-6"><div class="border rounded small p-1 px-2 bg-light text-muted">{{ track.structure[b].lines[loop.index0] if b < track.structure|length and loop.index0 < track.structure[b].lines|length else '' }}</div></div>
+              <div class="col-6"><textarea name="line_{{ b }}" class="form-control form-control-sm auto-grow" rows="1">{{ line }}</textarea></div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+    <button class="btn btn-primary">Сохранить перевод</button>
+  </form>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function autoGrow(el) {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
+
+  const boxes = document.querySelectorAll('.auto-grow');
+  boxes.forEach((el) => {
+    el.style.overflow = 'hidden';
+    el.style.resize = 'none';
+    autoGrow(el);
+  });
+  document.addEventListener('input', (event) => {
+    if (event.target.matches('.auto-grow')) autoGrow(event.target);
+  });
+  window.addEventListener('load', () => boxes.forEach(autoGrow));
+</script>
+{% endblock %}
