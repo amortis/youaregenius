@@ -1,16 +1,17 @@
 {% extends 'base.html' %}
 
-{% block title %}Все треки — youaregenius{% endblock %}
+{% block title %}Все аннотации — youaregenius{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-  <h1 class="h3 mb-0">Все треки</h1>
+  <div><h1 class="h3 mb-1">Все аннотации</h1><p class="text-muted small mb-0">Разборы треков от пользователей · Все треки с аннотациями</p></div>
   <a class="btn btn-primary" href="{{ url_for('tracks.search') }}">Добавить новый</a>
 </div>
 
-{% if rows %}
+{% if groups %}
   <div class="row row-cols-1 row-cols-lg-2 g-4">
-    {% for annotation, track in rows %}
+    {% for group in groups %}
+      {% set track = group.track %}
       <div class="col">
         <div class="card h-100 shadow-sm">
           <div class="card-header bg-white d-flex align-items-center gap-2">
@@ -26,12 +27,27 @@
                 {%- if track.album %} · {{ track.album }}{% endif %}</div>
             </div>
           </div>
-          <div class="card-body py-2">
-            <div class="annot-card-excerpt p-2 mb-2 rounded small">«{{ annotation.excerpt }}»</div>
-            <p class="mb-0" style="white-space: pre-wrap;">{{ annotation.content }}</p>
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+              <span class="fw-semibold">{{ group.user.username }}</span>
+              <span class="badge text-bg-secondary">Аннотаций: {{ group.annotations|length }}</span>
+            </div>
+            {% for annotation in group.annotations %}
+              {% if loop.index == 2 %}
+                <details class="mt-3">
+                  <summary class="text-primary mb-3">Ещё аннотации: {{ group.annotations|length - 1 }}</summary>
+              {% endif %}
+              <section class="mb-3" id="annotation-{{ annotation.id }}">
+                <div class="small text-muted mb-1">{{ 'Оригинал' if annotation.on_original else 'Перевод' }}</div>
+                <blockquote class="annot-card-excerpt p-2 mb-2 rounded small">«{{ annotation.excerpt }}»</blockquote>
+                <p class="mb-0" style="white-space: pre-wrap; overflow-wrap: anywhere;">{{ annotation.content }}</p>
+              </section>
+              {% if loop.last and loop.index > 1 %}</details>{% endif %}
+            {% endfor %}
           </div>
-          <div class="card-footer bg-white small text-muted">
-            {{ annotation.user.username }} · {{ annotation.created_at.strftime('%d.%m.%Y') }}
+          <div class="card-footer bg-white d-flex justify-content-between align-items-center small">
+            <span class="text-muted">Обновлено {{ group.updated_at.strftime('%d.%m.%Y') }}</span>
+            <a href="{{ url_for('tracks.track_detail', track_id=track.id) }}">Открыть трек</a>
           </div>
         </div>
       </div>

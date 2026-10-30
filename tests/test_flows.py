@@ -329,3 +329,26 @@ def test_track_detail_shows_two_languages(app, client, track_factory):
     assert "Два языка" in page
     assert "Это настоящая жизнь?" in page
     assert "Is this the real life?" in page
+
+def test_annotation_feed_groups_by_author_and_track(app, client, track_factory):
+    from app.models import Annotation
+    client, _ = track_factory
+    with app.app_context():
+        other = User(username="another")
+        other.set_password("secret1")
+        db.session.add(other)
+        db.session.flush()
+        for user_id, text in [(1, "first note"), (1, "second note"), (other.id, "other author")]:
+            db.session.add(Annotation(user_id=user_id, track_id=1, start_offset=10,
+                end_offset=32, excerpt="Is this the real life?", content=text))
+        db.session.commit()
+    page = client.get("/tracks/all").get_data(as_text=True)
+    assert page.count('class="card h-100 shadow-sm"') == 2
+    assert "Аннотаций: 2" in page
+    assert "first note" in page and "second note" in page and "other author" in page
+    assert page.count("<details") == 1
+
+
+def test_annotation_feed_empty(client, register_user):
+    page = client.get("/tracks/all").get_data(as_text=True)
+    assert "Аннотаций пока нет" in page

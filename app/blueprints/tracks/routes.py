@@ -1,5 +1,6 @@
 from flask import abort, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
+from sqlalchemy.orm import joinedload
 
 from app.blueprints.tracks import bp
 from app.blueprints.tracks.forms import SearchForm
@@ -23,12 +24,23 @@ def my_tracks():
 @bp.get("/tracks/all")
 @login_required
 def all_tracks():
-    rows = db.session.execute(
-        db.select(Annotation, Track)
-        .join(Track, Annotation.track_id == Track.id)
-        .order_by(Annotation.created_at.desc())
+    rows = db.session.scalars(
+        db.select(Annotation)
+        .options(joinedload(Annotation.track), joinedload(Annotation.user))
+        .order_by(Annotation.updated_at.desc(), Annotation.id.desc())
     ).all()
-    return render_template("tracks/all_tracks.html", rows=rows)
+    groups = {}
+    for annotation in rows:
+        key = (annotation.user_id, annotation.track_id)
+        if key not in groups:
+            groups[key] = {
+                "track": annotation.track,
+                "user": annotation.user,
+                "updated_at": annotation.updated_at,
+                "annotations": [],
+            }
+        groups[key]["annotations"].append(annotation)
+    return render_template("tracks/all_tracks.html", groups=list(groups.values()))
 
 
 @bp.route("/tracks/search", methods=["GET", "POST"])
